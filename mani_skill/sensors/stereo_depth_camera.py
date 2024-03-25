@@ -1,5 +1,6 @@
 # TODO (stao): reimplement this
 from collections import OrderedDict
+from dataclasses import dataclass
 
 import numpy as np
 import sapien
@@ -12,6 +13,7 @@ from mani_skill.utils import sapien_utils
 from .camera import Camera, CameraConfig
 
 
+@dataclass
 class StereoDepthCameraConfig(CameraConfig):
     def __init__(self, *args, min_depth: float = 0.05, **kwargs):
         super().__init__(*args, **kwargs)
@@ -36,12 +38,9 @@ class StereoDepthCamera(Camera):
         self,
         camera_cfg: StereoDepthCameraConfig,
         scene: sapien.Scene,
-        renderer_type: str,
         articulation: physx.PhysxArticulation = None,
     ):
         self.camera_cfg = camera_cfg
-        assert renderer_type == "sapien", renderer_type
-        self.renderer_type = renderer_type
 
         actor_uid = camera_cfg.entity_uid
         if actor_uid is None:
@@ -76,9 +75,6 @@ class StereoDepthCamera(Camera):
                 mount=self.actor,
                 pose=camera_cfg.pose,
             )
-
-        if camera_cfg.hide_link:
-            self.actor.hide_visual()
 
         # Filter texture names according to renderer type if necessary (legacy for Kuafu)
         self.texture_names = camera_cfg.texture_names
