@@ -99,7 +99,7 @@ class PlaceSequentialTaskEnv(SequentialTaskEnv):
         self.robot_cumulative_force_limit = robot_cumulative_force_limit
 
         # additional randomization
-        self.goal_randomization = False
+        self.goal_randomization = goal_randomization
 
         super().__init__(*args, robot_uids=robot_uids, task_plans=task_plans, **kwargs)
 
