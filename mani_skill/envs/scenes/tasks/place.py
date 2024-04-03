@@ -279,7 +279,7 @@ class PlaceSequentialTaskEnv(SequentialTaskEnv):
 
             if self.goal_randomization:
                 xyz = torch.zeros((b, 3))
-                xyz[..., :2] = torch.rand((b, 2)) * 0.2
+                xyz[..., :2] = torch.rand((b, 2)) * 0.4 - 0.2
                 xyz += torch.tensor(self.task_plan[0].goal_pos)
                 self.subtask_goals[0].set_pose(Pose.create_from_pq(p=xyz))
 
