@@ -60,6 +60,7 @@ class RGBDObservationWrapper(BaseGymObservationWrapper):
 
     def observation(self, observation: dict):
         image_obs = observation["image"]
+
         for cam_uid, ori_images in image_obs.items():
             new_images = OrderedDict()
             for key in ori_images:

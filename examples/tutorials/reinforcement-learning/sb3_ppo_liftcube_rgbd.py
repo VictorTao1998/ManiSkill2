@@ -1,4 +1,6 @@
 # Import required packages
+import tensorrt as trt
+
 import argparse
 import os.path as osp
 from functools import partial
@@ -14,6 +16,9 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+
+import sys
+sys.path.insert(1, "/home/jianyu/jianyu/ManiSkill2")
 
 import mani_skill2.envs
 from mani_skill2.utils.common import flatten_dict_space_keys, flatten_state_dict
@@ -65,6 +70,7 @@ class ManiSkillRGBDWrapper(gym.ObservationWrapper):
 
         # Concatenate all the image spaces
         image_shapes = []
+        
         for cam_uid in obs_space["image"]:
             cam_space = obs_space["image"][cam_uid]
             image_shapes.append(cam_space["rgb"].shape)
@@ -209,7 +215,7 @@ def parse_args():
         "-n",
         "--n-envs",
         type=int,
-        default=8,
+        default=1,
         help="number of parallel envs to run. Note that increasing this does not increase rollout size",
     )
     parser.add_argument(
@@ -258,7 +264,7 @@ def main():
     obs_mode = "rgbd"
     # NOTE: The end-effector space controller is usually more friendly to pick-and-place tasks
     control_mode = "pd_ee_delta_pose"
-    use_ms2_vec_env = True
+    use_ms2_vec_env = False
 
     if args.seed is not None:
         set_random_seed(args.seed)
@@ -278,7 +284,9 @@ def main():
             control_mode=control_mode,
             render_mode="cameras",
             max_episode_steps=max_episode_steps,
+            renderer="sapien"
         )
+
         # For training, we regard the task as a continuous task with infinite horizon.
         # you can use the ContinuousTaskWrapper here for that
         if max_episode_steps is not None:

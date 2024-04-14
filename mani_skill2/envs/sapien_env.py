@@ -409,6 +409,7 @@ class BaseEnv(gym.Env):
                 cam_cls = StereoDepthCamera
             else:
                 cam_cls = Camera
+
             self._cameras[uid] = cam_cls(
                 camera_cfg,
                 self._scene,

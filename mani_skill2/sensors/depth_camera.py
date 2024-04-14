@@ -56,6 +56,7 @@ class StereoDepthCamera(Camera):
         # Add camera
         sensor_config = StereoDepthSensorConfig()
         sensor_config.rgb_resolution = camera_cfg.rgb_resolution
+
         sensor_config.rgb_intrinsic = camera_cfg.rgb_intrinsic
         sensor_config.min_depth = camera_cfg.min_depth
         if self.actor is None:
@@ -87,7 +88,9 @@ class StereoDepthCamera(Camera):
             return {}
 
         images = {}
+
         for name in self.texture_names:
+            
             if name == "Color":
                 image = self.camera._cam_rgb.get_float_texture("Color")
             elif name == "depth":
@@ -96,8 +99,12 @@ class StereoDepthCamera(Camera):
             elif name == "Position":
                 self.camera.compute_depth()
                 position = self.camera._cam_rgb.get_float_texture("Position")
-                depth = self.camera.get_depth()
-                position[..., 2] = -depth
+                # depth = self.camera.get_depth()
+                # position[..., 2] = -depth
+                image = position
+                #print("ori:",image.shape)
+                depth_pred = self.camera.compute_depth_by_model()
+                position[..., 2] = -depth_pred
                 image = position
             elif name == "Segmentation":
                 image = self.camera._cam_rgb.get_uint32_texture("Segmentation")
