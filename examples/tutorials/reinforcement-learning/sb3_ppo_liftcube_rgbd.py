@@ -210,12 +210,12 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Simple script demonstrating how to use Stable Baselines 3 with ManiSkill2 and RGBD Observations"
     )
-    parser.add_argument("-e", "--env-id", type=str, default="LiftCube-v0")
+    parser.add_argument("-e", "--env-id", type=str, default="LiftCube-v1")
     parser.add_argument(
         "-n",
         "--n-envs",
         type=int,
-        default=1,
+        default=4,
         help="number of parallel envs to run. Note that increasing this does not increase rollout size",
     )
     parser.add_argument(

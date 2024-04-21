@@ -10,11 +10,15 @@ from mani_skill2.utils.sapien_utils import get_entity_by_name
 
 from .camera import Camera, CameraConfig
 
+import sys
+import torch
+import torch.nn.functional as F
 
 class StereoDepthCameraConfig(CameraConfig):
-    def __init__(self, *args, min_depth: float = 0.05, **kwargs):
+    def __init__(self, *args, min_depth: float = 0.05, trt_dict=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.min_depth = min_depth
+        self.trt_dict = trt_dict
 
     @property
     def rgb_resolution(self):
@@ -39,6 +43,7 @@ class StereoDepthCamera(Camera):
         articulation: sapien.Articulation = None,
     ):
         self.camera_cfg = camera_cfg
+        self.trt_dict = camera_cfg.trt_dict
         assert renderer_type == "sapien", renderer_type
         self.renderer_type = renderer_type
 
@@ -80,6 +85,7 @@ class StereoDepthCamera(Camera):
         self.texture_names = camera_cfg.texture_names
 
     def get_images(self, take_picture=False):
+        # trt_dict = {"model": stereo_trt(), "focal": 480., "baseline":0.1}
         """Get (raw) images from the camera."""
         if take_picture:
             self.take_picture()
@@ -99,12 +105,32 @@ class StereoDepthCamera(Camera):
             elif name == "Position":
                 self.camera.compute_depth()
                 position = self.camera._cam_rgb.get_float_texture("Position")
-                # depth = self.camera.get_depth()
-                # position[..., 2] = -depth
-                image = position
-                #print("ori:",image.shape)
-                depth_pred = self.camera.compute_depth_by_model()
-                position[..., 2] = -depth_pred
+                if self.trt_dict is None:
+                    depth = self.camera.get_depth()
+                    position[..., 2] = -depth
+                else:
+                    trt_stereo_model = self.trt_dict["model"]
+
+                    left_tensor = self.camera._cam_ir_l.get_color_rgba()
+                    right_tensor = self.camera._cam_ir_r.get_color_rgba()
+                    left_tensor = left_tensor[:,:,:3].transpose([2,0,1])
+                    right_tensor = right_tensor[:,:,:3].transpose([2,0,1])
+
+                    left_tensor = torch.Tensor(left_tensor)[None,...]
+                    right_tensor = torch.Tensor(right_tensor)[None,...]
+
+                    
+                    left_tensor = F.interpolate(left_tensor, size=(384, 768)).numpy()
+                    right_tensor = F.interpolate(right_tensor, size=(384, 768)).numpy()
+
+                    pred = trt_stereo_model.infer(left_tensor, right_tensor)
+
+                    pred = torch.Tensor(pred)[None,None,...]
+                    pred = F.interpolate(pred, size=(128,128)).numpy()[0,0]
+
+                    depth_pred = (self.trt_dict["focal"] * self.trt_dict["baseline"])/pred
+                    # depth_pred = self.camera.compute_depth_by_model()
+                    position[..., 2] = -depth_pred
                 image = position
             elif name == "Segmentation":
                 image = self.camera._cam_rgb.get_uint32_texture("Segmentation")

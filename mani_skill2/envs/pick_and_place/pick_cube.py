@@ -10,6 +10,16 @@ from mani_skill2.utils.sapien_utils import vectorize_pose
 
 from .base_env import StationaryManipulationEnv
 
+from mani_skill2.sensors.depth_camera import StereoDepthCameraConfig
+from mani_skill2.utils.sapien_utils import (
+    get_entity_by_name,
+    look_at,
+    set_articulation_render_material,
+    vectorize_pose,
+)
+import sys
+sys.path.insert(1, "/home/jianyu/jianyu/fadnet_jetson")
+from infer_trt_module import stereo_trt
 
 @register_env("PickCube-v0", max_episode_steps=200)
 class PickCubeEnv(StationaryManipulationEnv):
@@ -179,6 +189,68 @@ class LiftCubeEnv(PickCubeEnv):
             reward += lifting_reward
 
         return reward
+
+    def compute_normalized_dense_reward(self, **kwargs):
+        return self.compute_dense_reward(**kwargs) / 2.25
+    
+@register_env("LiftCube-v1", max_episode_steps=200)
+class LiftCubeEnv(PickCubeEnv):
+    """Lift the cube to a certain height."""
+
+    goal_height = 0.2
+
+    def _initialize_task(self):
+        self.goal_pos = self.obj.pose.p + [0, 0, self.goal_height]
+        self.goal_site.set_pose(Pose(self.goal_pos))
+
+    def _get_obs_extra(self) -> OrderedDict:
+        obs = OrderedDict(
+            tcp_pose=vectorize_pose(self.tcp.pose),
+        )
+        if self._obs_mode in ["state", "state_dict"]:
+            obs.update(
+                obj_pose=vectorize_pose(self.obj.pose),
+                tcp_to_obj_pos=self.obj.pose.p - self.tcp.pose.p,
+            )
+        return obs
+
+    def check_obj_placed(self):
+        return self.obj.pose.p[2] >= self.goal_height + self.cube_half_size[2]
+
+    def compute_dense_reward(self, info, **kwargs):
+        reward = 0.0
+
+        if info["success"]:
+            reward += 2.25
+            return reward
+
+        # reaching reward
+        gripper_pos = self.tcp.get_pose().p
+        obj_pos = self.obj.get_pose().p
+        dist = np.linalg.norm(gripper_pos - obj_pos)
+        reaching_reward = 1 - np.tanh(5 * dist)
+        reward += reaching_reward
+
+        is_grasped = self.agent.check_grasp(self.obj, max_angle=30)
+
+        # grasp reward
+        if is_grasped:
+            reward += 0.25
+
+        # lifting reward
+        if is_grasped:
+            lifting_reward = self.obj.pose.p[2] - self.cube_half_size[2]
+            lifting_reward = min(lifting_reward / self.goal_height, 1.0)
+            reward += lifting_reward
+
+        return reward
+    
+    def _register_cameras(self):
+        pose = look_at([0.3, 0, 0.6], [-0.1, 0, 0.1])
+        trt_engine = {"model": stereo_trt(), "focal": 480., "baseline": 0.1}
+        return StereoDepthCameraConfig(
+            "base_camera", pose.p, pose.q, 128, 128, np.pi / 2, 0.01, 10, trt_dict=trt_engine
+        )
 
     def compute_normalized_dense_reward(self, **kwargs):
         return self.compute_dense_reward(**kwargs) / 2.25
